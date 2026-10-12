@@ -77,18 +77,14 @@ that one, so each case gets its own status:
 The reason is in both the header and the JSON body, so `curl -sI` is enough to tell them apart.
 
 `upload_pending` is decided from the engine's own bookkeeping: each tick is parked under
-`roomHistory:<baseTick>:<room>` with a TTL and the worker deletes that key once the chunk is
-uploaded, so a TTL lookup answers "was this room producing history in that window?" for any window
-the worker can still reach.
+`roomHistory:<baseTick>:<room>` with a TTL and the worker deletes that key only after the adapter
+has committed the chunk. The endpoint checks this marker for every missing chunk inside the
+configured retention horizon, because large room snapshots can take longer than a few chunks to
+roll up while the simulation advances.
 
-Two things this changes besides the status: a read failure is now logged by the server, where
-before it was sent to the client and nowhere else, and the room name is validated, because the file
-adapter interpolates it straight into a path.
-
-It cannot tell you a chunk was *lost*. Past the worker's backfill window, a room that was quiet and
-a room whose chunk died with the server are both simply absent; nothing records which rooms were
-meant to be written.
-
+Two other safeguards come with these statuses: adapter faults are logged on the server, and room names are validated before they reach the file adapter's path.
+A `404` inside that horizon means the room produced no chunk; a `410` means it was trimmed. Once
+the pending marker expires, the endpoint cannot distinguish a lost chunk from a quiet room.
 Set `statusCodes = false` to keep the old single-500 behaviour.
 
 ### ENV Method

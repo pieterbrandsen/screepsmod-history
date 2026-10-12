@@ -91,12 +91,13 @@ test('resolve refuses to call anything absent while the clock is unreadable', ()
   )
 })
 
-test('shouldProbePending covers the worker backfill window and stops there', () => {
-  assert.strictEqual(shouldProbePending({ time: 500, chunkSize: 100, gameTime: 800 }), true)
-  assert.strictEqual(shouldProbePending({ time: 500, chunkSize: 100, gameTime: 900 }), true)
-  assert.strictEqual(shouldProbePending({ time: 500, chunkSize: 100, gameTime: 901 }), false)
-  assert.strictEqual(shouldProbePending({ time: 500, chunkSize: 100, gameTime: null }), false)
-  assert.strictEqual(shouldProbePending({ time: 500, chunkSize: 0, gameTime: 800 }), false)
+test('shouldProbePending covers pending chunks anywhere in the retention window', () => {
+  assert.strictEqual(shouldProbePending({ time: 500, chunkSize: 100, gameTime: 800, keepTicks: 60000 }), true)
+  assert.strictEqual(shouldProbePending({ time: 500, chunkSize: 100, gameTime: 6000, keepTicks: 60000 }), true)
+  assert.strictEqual(shouldProbePending({ time: 500, chunkSize: 100, gameTime: 61000, keepTicks: 60000 }), false)
+  assert.strictEqual(shouldProbePending({ time: 500, chunkSize: 100, gameTime: 550, keepTicks: 60000 }), false)
+  assert.strictEqual(shouldProbePending({ time: 500, chunkSize: 100, gameTime: null, keepTicks: 60000 }), false)
+  assert.strictEqual(shouldProbePending({ time: 500, chunkSize: 0, gameTime: 800, keepTicks: 60000 }), false)
 })
 
 test('isMissing recognises absence from every adapter upstream ships', () => {

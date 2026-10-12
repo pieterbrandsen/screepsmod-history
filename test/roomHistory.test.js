@@ -59,6 +59,25 @@ test('reports a pending upload rather than absence', async () => {
   assert.strictEqual(sent.headers['X-History-Status'], 'upload_pending')
 })
 
+test('reports a pending upload even when it is older than the four-chunk window', async () => {
+  const sent = await run(fakeConfig({ gameTime: 1200, ttl: 4200 }), async () => { throw absent() })
+  assert.strictEqual(sent.statusCode, 425)
+  assert.strictEqual(sent.headers['X-History-Status'], 'upload_pending')
+})
+
+test('does not probe pending uploads beyond the retention horizon', async (t) => {
+  const prior = process.env.HISTORY_KEEP_TICKS
+  process.env.HISTORY_KEEP_TICKS = '500'
+  t.after(() => { if (prior === undefined) delete process.env.HISTORY_KEEP_TICKS; else process.env.HISTORY_KEEP_TICKS = prior })
+
+  const config = fakeConfig({ gameTime: 1200, ttl: 4200 })
+  let probes = 0
+  config.common.storage.env.ttl = async () => { probes++; return 4200 }
+  const sent = await run(config, async () => { throw absent() }, request({ room: 'W1N1', time: '500' }))
+  assert.strictEqual(sent.statusCode, 410)
+  assert.strictEqual(probes, 0)
+})
+
 test('settles a quiet room with a 404 a client can act on', async () => {
   const sent = await run(fakeConfig({ gameTime: 700 }), async () => { throw absent() })
   assert.strictEqual(sent.statusCode, 404)
